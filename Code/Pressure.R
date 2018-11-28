@@ -27,4 +27,7 @@ for(i in 1:nrow(match.results)){
 }
 
 ggplot(match.results,aes(x=result,y=home_percent)) + geom_boxplot()
+
+
+
   
