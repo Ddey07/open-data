@@ -1,5 +1,5 @@
 ---
-title: "The Good, The Bad, and The Ugle of the Beautiful Game"
+title: "The Good, The Bad, and The Ugly of the Beautiful Game"
 author: "Debangan Dey, Andrew Pita"
 output: html_document
 ---
@@ -8,10 +8,14 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(dplyr)
 library(ggplot2)
 library(knitr)
+library(purrr)
+library(tidyverse)
+library("jsonlite")
+library(ggsoccer)
 
 ```
 
@@ -23,7 +27,7 @@ Broadly, we define three areas in which data analysis can make (or already does 
 
 One well known example of using data analysis to inform scouting is the performance of MLB's Oakland Athletics in the 2002 season.  Under the direction of General Manager Billy Beane, the Athletic's organization used data analysis to develop measures that were predictive of future performance that outperformed the current measures used by other teams. In doing so, they were able to use their limited funds to build a team that went on to win the American League West title.  The strategy employed by the A's in the 2002 season has been used and further developed with great success, playing a role in the 2004 Red Sox World Series Victory, the 2016 Chicago Cubs World Series, and the 2017 Houston Astro's World Series. 
 
-Increasingly, data analysis is being applied in the National Basketball Association and has fundamentally changed the way that coaches and managers structure their teams and approach the game.  Decades ago, teams with tall and strong post players could dominate the game (see the Lakers back to back to back championships on the back of Shaquile O'neile and Kobe Bryant).  Today, the most successful teams are built around three point shooting and speed in both ball movement and attacking.  Players that we would think of as traditional "big men" can now also shoot from the perimeter, possessing more tools than they did in the past.  This is in part due to increased athleticism and improved training on the part of the players, but also from an insight that if a player can shoot over a certain percentage from the three point line, it becomes an optimal strategy for them to take as many shots as possible. 
+Increasingly, data analysis is being applied in the National Basketball Association and has fundamentally changed the way that coaches and managers structure their teams and approach the game.  Decades ago, teams with tall and strong post players could dominate the game (see the Lakers three consecutive championships on the backs of Shaquile O'neile and Kobe Bryant).  Today, the most successful teams are built around three point shooting and speed in both ball movement and attacking.  Players that we would think of as traditional "big men" can now also shoot from the perimeter, possessing more tools than they did in the past.  This is in part due to increased athleticism and improved training on the part of the players, but also from an insight that if a player can shoot over a certain percentage from the three point line, it becomes an optimal strategy for them to take as many shots as possible. 
 
 Finally, we return to baseball to illustrate how teams now use data analysis in real time during the game to inform strategic decision making.  Because the locations of all a batters previous successful hits can be stored digitally, constructing and updating a probability distribution of their hits during the game is an easy thing to accomplish.  Many teams now do this and shift the position of their fielders so that they can optimally defend each specific batter.  
 
@@ -41,13 +45,82 @@ In this project we attempt to utilize data collected by Stats Bomb during the 20
 
 We began with mostly descriptive questions to get a feel for the data and to develop more questions.  We list the specific questions below:
 
-1) Where on the field most shots on goal came from? Do teams with different formations (the baseline positioning of the players on the field) take shots from locations at different frequencies. 
+1) Where on the field most shots on goal came from? Do teams with different formations (the baseline positioning of the players on the field) take shots from locations at different frequencies?
 
 2) What patterns of play give rise to the most effective shots? A play pattern describes the setting in which events of the game unfold.  For example, if a team takes a shot that is saved and held on to by the goal keeper, then the next pattern of play begins with the keeper throwing or kicking the ball to one of his teammates.  Other examples of patterns of play include play beginning from corner kicks, from throw ins, or from set pieces following a penalty. 
 
 3) Can we develop team level summary measures that are predictive of team performance? Data with such a fine grain of temporal detail can quickly become overwhelming. Summary measures such as these would be tremendously useful for a soccer club. 
 
 # Data
+
+The data was downloaded here []() in JSON format and then processed with the R code below. 
+We have it commented out so that it does not run when this file is knit, but we include it for completeness. 
+
+```{r}
+
+# #Reading match data
+# setwd("./data/matches")
+# match.json.1 <- jsonlite::fromJSON(list.files()[1],flatten = TRUE)
+# #Reading world cup data
+# match.json.2 <- jsonlite::fromJSON(list.files()[2],flatten = TRUE)
+# match.data <- rbind(match.json.1,match.json.2)[-1,]
+# 
+# 
+# #Reading events datas
+# event.path <- "../events"
+# setwd(event.path)
+# 
+# file.id <- list.files() %in% as.character(paste0(match.data[,1],".json")) 
+# file.list <- list.files()[file.id]
+# 
+# event.data <- jsonlite::fromJSON(file.list[1], flatten = TRUE)
+# event.data$match_id <- rep(as.numeric(substr(file.list[1],1,4)),nrow(event.data))
+# 
+# for(i in 2:length(file.list)){
+#   json.data <- jsonlite::fromJSON(file.list[i], flatten = TRUE)
+#   match.id.event <- as.numeric(substr(file.list[i],1,4))
+#   json.data$match_id <- rep(match.id.event,nrow(json.data))
+#   event.data <- rbind.fill(event.data,json.data)
+#   print(i)
+# }
+# 
+# all.data <- merge(event.data,match.data)
+# 
+# #Splitting locations 
+# for(i in 1:nrow(all.data)){
+#   if(is.null(all.data$location[[i]])){
+#     all.data$start.x[i] <- NA
+#     all.data$start.y[i] <- NA
+#     all.data$pass.end.x[i] <- NA
+#     all.data$pass.end.y[i] <- NA
+#   } else if (is.null(all.data$pass.end_location[[i]])) {
+#     all.data$start.x[i] <- all.data$location[[i]][1]
+#     all.data$start.y[i] <- all.data$location[[i]][2]
+#     all.data$pass.end.x[i] <- NA
+#     all.data$pass.end.y[i] <- NA
+#     
+#   } else {
+#     all.data$start.x[i] <- all.data$location[[i]][1]
+#     all.data$start.y[i] <- all.data$location[[i]][2]
+#     all.data$pass.end.x[i] <- all.data$pass.end_location[[i]][1]
+#     all.data$pass.end.y[i] <- all.data$pass.end_location[[i]][2]
+#   }
+# }
+# 
+# #all.data$start.x <- all.data$location
+# 
+# drops <- c("location","pass.end_location")
+# all.data <- all.data[,!(names(all.data) %in% drops)]
+# 
+# #write.csv(all.data,file="NWSL_event_compiled.csv")
+# 
+# #Saving into .RData
+# save(all.data,file="../Full_event_compiled.RData")
+# 
+
+```
+
+In all, this data contains 177,349 event obervations from 64 matches in the 2018 FIFA World Cup.
 
 # Exploratory Data Analysis
 
@@ -85,17 +158,31 @@ Given that goals are such a rare event, we wonder whether or not shooting percen
 
 ### seeing how many games each team won out of the total games they played
 
+#as far as I can tell, home_score contains the final score for the home team in 
+#that game. away_score contains the same for the away team
 wins_frame = all.data %>% select(match_id,  home_team.home_team_name, 
                                  away_team.away_team_name, home_score, away_score)
+
+#grouping by home_team.home_team_name and away_team.away_team_name then gives us 
+#individual games. The home_win column adds up the number of tiems the home team won,
+#which will be inflated because the home_score has been placed at each timestamp. Same for 
+#away_win. We pass everything to distint at the end so we get the unique combinations
 
 wins_frame = wins_frame %>% group_by(home_team.home_team_name, away_team.away_team_name) %>%
   mutate(home_win = sum(home_score > away_score),
          away_win = sum(home_score < away_score)) %>% distinct
 
+#For each of the unique combinations that we have now, we simply want to put a 1
+#in the home win column if the sum from last time is above zero. Same for the away_win
+#column
 wins_frame$home_win = ifelse(wins_frame$home_win > 0, 1, 0)
 wins_frame$away_win = ifelse(wins_frame$away_win > 0, 1, 0)
 
 
+#now for each team we want to loop through the 
+#wins_frame data frame and see how many home/away games they played,
+#how many of those games they won, how many total games they played,
+#and store all that information in an empty matrix
 team_names = unique(all.data$team.name)
 nloop = length(team_names)
 wins_mat = matrix(nrow = nloop, ncol = 3)
@@ -119,14 +206,133 @@ for (i in 1:nloop) {
   
 }
 
+#make the matrix a data frame and give it column names
+team_wins_frame = as.data.frame(wins_mat)
+colnames(team_wins_frame) = c("Team", "Wins", "Total Games")
+#convert the columns to numeric
+team_wins_frame$Wins = as.numeric(as.character(team_wins_frame$Wins))
+team_wins_frame$`Total Games` = as.numeric(as.character(team_wins_frame$`Total Games`))
+#calculate a win percentage for each team
+team_wins_frame$win_percent = team_wins_frame$Wins/team_wins_frame$`Total Games`
+
 ```
 
 ```{r}
 
 ## getting a goal percentage for each team
+#we are going to do a very similar loop to the one above
+
+#first modify the original all.data frame to contain a column that 
+#contains the match_id along with each posession. Then convert timestamp
+#to hours,minutes, seconds, and finally calculate a pass spead variable
+
+all.data = all.data %>% mutate(match_pos=paste0(match_id,"_",possession), 
+            timehms=as.POSIXct(strptime(all.data$timestamp,format="%H:%M:%S")),
+            pass.speed= pass.length/duration)
+
+#construct a new dataframe which has summary statistics and also shows
+#which team currently had possession
+sum_possession_frame = all.data %>% 
+                #exclude timestamps corresponding to starting the match, half, etc
+                      filter(!type.name %in% c("Starting XI","Half End", 
+                                      "Half Start","Camera On","Injury Stoppage",
+                                      "Substitution","Tactical Shift")) %>% 
+                #group by the match_pos column that contains the match_id linked to the
+                #posession number
+                      group_by(match_pos) %>% 
+                #we want the new match id to have only one observation per match
+                      summarise(match_id=unique(match_id),
+                #the following are all summary statistics for the possession
+                                passcount=sum(type.name=="Pass", na.rm = TRUE), 
+                                pass.under.pressure=sum(type.name=="Pass" & under_pressure== TRUE,
+                                                        na.rm = TRUE), 
+                        #we again want only unique observations
+                                match=unique(match_id), 
+                                possession= unique(possession), 
+                                poss.team=unique(possession_team.name),
+                        #defending team is the home team column and the away team column
+                        #where the away team is not in the home team column
+                        #and the away team is not in possession of the ball
+                                def.team=c(unique(home_team.home_team_name),
+                        unique(away_team.away_team_name))[which(!c(unique(home_team.home_team_name),
+                        unique(away_team.away_team_name)) %in% unique(possession_team.name))], 
+                
+                              shot=sum(type.name=="Shot", na.rm = TRUE), 
+                              xG= mean(shot.statsbomb_xg, na.rm = TRUE), 
+                              goal=sum(shot.outcome.name=="Goal", na.rm = TRUE),
+                              save = sum(shot.outcome.name == "Saved", na.rm = TRUE),
+                              timespan=difftime(max(timehms[type.name!="Half Start"]),
+                              min(timehms[type.name!="Half Start"]),unit="secs"),
+                              time.under.pressure=sum(duration[type.name=="Pressure"], na.rm=TRUE), 
+                              pressurecount=sum(type.name=="Pressure"), 
+                        
+                              poss.team.score= c(unique(home_score),
+                               unique(away_score))[which(c(unique(home_team.home_team_name),
+                              unique(away_team.away_team_name)) %in% unique(possession_team.name))],
+                
+                              def.team.score=c(unique(home_score),
+                                               
+                        unique(away_score))[which(!c(unique(home_team.home_team_name),
+          unique(away_team.away_team_name))%in%unique(possession_team.name))],half=unique(period)[1],
+          
+                            high.pass=sum(pass.height.name=="High Pass", na.rm = TRUE),
+                            pass.length=mean(pass.length, na.rm = TRUE),
+                            pass.speed=mean(pass.speed, na.rm = TRUE)) %>%
+            
+                    arrange(match,possession)
+
+
+team_names = unique(sum_possession_frame$poss.team)
+nloop = length(team_names)
+goals_mat = matrix(nrow = nloop, ncol = 5)
+
+for (i in 1:nloop) {
+  
+  team_name = team_names[i]
+  team_frame = sum_possession_frame %>% filter(poss.team == team_name)
+  shots = sum(team_frame$shot)
+  goals = sum(team_frame$goal)
+  
+  team_frame = sum_possession_frame %>% filter(def.team == team_name)
+  saved = sum(team_frame$save)
+  total_attempts_against = sum(team_frame$shot)
+  
+  goals_mat[i, 1] = team_name
+  goals_mat[i, 2] = shots
+  goals_mat[i, 3] = goals
+  goals_mat[i, 4] = saved
+  goals_mat[i,5] = total_attempts_against
+}
+
+goals_frame = as.data.frame(goals_mat)
+colnames(goals_frame) = c("Team", "Shots", "Goals","Saves","Shots_Against")
+goals_frame$Team = as.character(goals_frame$Team)
+goals_frame$Shots = as.numeric(as.character(goals_frame$Shots))
+goals_frame$Goals = as.numeric(as.character(goals_frame$Goals))
+goals_frame$Saves = as.numeric(as.character(goals_frame$Saves))
+goals_frame$Shots_Against = as.numeric(as.character(goals_frame$Shots_Against))
+goals_frame$shot_perc = goals_frame$Goals/goals_frame$Shots
+goals_frame$save_perc = goals_frame$Saves/goals_frame$Shots_Against
 
 
 ```
+
+```{r}
+
+#join team_wins_frame and goals_frame
+
+teams_goals_wins = merge(goals_frame, team_wins_frame, by = "Team")
+
+ggplot(data = teams_goals_wins, aes(x = shot_perc,y = win_percent)) +
+  geom_jitter() +
+  labs(x = "Shot Percentage", y = "Win Percentage") + 
+  geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
+  
+
+
+
+```
+
 
 As stated in the initial questions section, we are interested in seeing if certain play patterns give rise to more effective shots on goal.  Included in this dataset is a measure of the likelihood of a goal for any shot provided by STATSBomb called XG, or expected goal. Here we will look at differences in the mean XG and also successful goal percentage for shots taking place in different play patterns. 
 
@@ -166,20 +372,12 @@ shots_on_target_mean_xg = shots %>% group_by(play_pattern.name) %>%
 
 Now let's visualize these results. 
 
-```{r}
-
-ggplot(data = play_pattern_for_plot, aes(x = play_pattern.name, y = shot.statsbomb_xg)) +
-  geom_boxplot() +
-  labs(x = "Play Pattern", y = "Expected Goal Value") +
-  theme(axis.text.x = element_text(angle = 90))
-
-```
 
 ```{r}
 
 ggplot(data = play_pattern_for_plot, aes(x = play_pattern.name, y = shot.statsbomb_xg)) +
   stat_summary(fun.y = mean, geom = "point") + 
-  stat_summary(fun.data = mean_se, geom = "errorbar") +
+  stat_summary(fun.data = mean_se, geom = "errorbar", aes(width = 0.2)) +
   theme(axis.text.x = element_text(angle = 90)) +
   labs(x = "Play Pattern", y = "Expected Goal Value") 
 
@@ -187,7 +385,120 @@ ggplot(data = play_pattern_for_plot, aes(x = play_pattern.name, y = shot.statsbo
 ```
 
 
+```{r}
+
+team_name = team_names[1]
+team_xg = all.data %>% filter(possession_team.name == team_name, type.name == "Shot") %>%
+        select(play_pattern.name, shot.statsbomb_xg, shot.outcome.name) %>%
+        group_by(play_pattern.name) %>%
+        summarise(mean_xg = mean(shot.statsbomb_xg),
+            sd_xg = sd(shot.statsbomb_xg),
+            n_goal = sum(shot.outcome.name == "Goal"),
+            n_missed = sum(shot.outcome.name != "Goal"),
+            prop_goal = n_goal/(n_missed + n_goal))
+  
+
+row1 = c(team_name, team_xg[1,2:ncol(team_xg)], team_xg[2,2:ncol(team_xg)], 
+         team_xg[3,2:ncol(team_xg)], team_xg[4,2:ncol(team_xg)],
+         team_xg[5,2:ncol(team_xg)], team_xg[6,2:ncol(team_xg)],
+         team_xg[7,2:ncol(team_xg)],team_xg[8,2:ncol(team_xg)])
+names(row1) = c("team","mean_corner_xg", "sd_corner_xg", "n_corner_goal", "n_corner_missed",
+                "prop_corner","mean_freekick_xg","sd_freekick_xg","n_freekick_goal",
+                "n_freekick_missed","prop_freekick", "mean_goalkick_xg",
+                "sd_goalkick_xg","n_goalkick_goal","n_goalkick_missed","prop_goalkick",
+                "mean_keep_xg","sd_keep_xg", "n_keep_goal", "n_keep_missed","prop_keep",
+                "mean_kickoff_xg", "sd_kickoff_xg", "n_kickoff_goal", "n_kickoff_missed",
+                "prop_kickoff", "mean_throwin_xg","sd_throwin_xg","n_throwin_goal",
+                "n_throwin_missed", "prop_throwin", "mean_pk_xg", "sd_pk_xg","n_pk_goal",
+                "n_pk_missed","prop_pk", "mean_regular_xg", "sd_regular_xg", "n_regular_goal",
+                "n_regular_missed", "prop_regular")
+
+for (i in 2:nloop) {
+  
+  team_name = team_names[i]
+  loop_xg = all.data %>% filter(possession_team.name == team_name, type.name == "Shot") %>%
+        select(play_pattern.name, shot.statsbomb_xg, shot.outcome.name) %>%
+        group_by(play_pattern.name) %>%
+        summarise(mean_xg = mean(shot.statsbomb_xg),
+            sd_xg = sd(shot.statsbomb_xg),
+            n_goal = sum(shot.outcome.name == "Goal"),
+            n_missed = sum(shot.outcome.name != "Goal"),
+            prop_goal = n_goal/(n_missed + n_goal))
+  
+  rowloop = c(team_name, loop_xg[1,2:ncol(loop_xg)], loop_xg[2,2:ncol(loop_xg)], 
+         loop_xg[3,2:ncol(loop_xg)], loop_xg[4,2:ncol(loop_xg)],
+         loop_xg[5,2:ncol(loop_xg)], loop_xg[6,2:ncol(loop_xg)],
+         loop_xg[7,2:ncol(loop_xg)],loop_xg[8,2:ncol(loop_xg)])
+  
+  names(rowloop) = c("team","mean_corner_xg", "sd_corner_xg", "n_corner_goal", "n_corner_missed",
+                "prop_corner","mean_freekick_xg","sd_freekick_xg","n_freekick_goal",
+                "n_freekick_missed","prop_freekick", "mean_goalkick_xg",
+                "sd_goalkick_xg","n_goalkick_goal","n_goalkick_missed","prop_goalkick",
+                "mean_keep_xg","sd_keep_xg", "n_keep_goal", "n_keep_missed","prop_keep",
+                "mean_kickoff_xg", "sd_kickoff_xg", "n_kickoff_goal", "n_kickoff_missed",
+                "prop_kickoff", "mean_throwin_xg","sd_throwin_xg","n_throwin_goal",
+                "n_throwin_missed", "prop_throwin", "mean_pk_xg", "sd_pk_xg","n_pk_goal",
+                "n_pk_missed","prop_pk", "mean_regular_xg", "sd_regular_xg", "n_regular_goal",
+                "n_regular_missed", "prop_regular")
+  
+  
+
+  
+  row1 = rbind(row1, rowloop)
+
+}
+
+team_xg = as.data.frame(row1)
+rownames(team_xg) = NULL
+
+```
+
+```{r}
+
+#PCA by xg and play pattern name
+team_xg_scaled = team_xg[,grepl(pattern = "mean",x = colnames(team_xg))]
+team_xg_scaled = team_xg_scaled[,-ncol(team_xg_scaled)]
+
+team_xg_scaled = apply(team_xg_scaled,2,as.numeric)
+team_xg_scaled = scale(team_xg_scaled, center = TRUE, scale = TRUE)
+rownames(team_xg_scaled) =  team_xg$team
+xgPC = prcomp(na.omit(team_xg_scaled))
+summary(xgPC)
+
+```
+
+```{r}
+
+forPlot = data.frame(PC1 = xgPC$x[,1], PC2 = xgPC$x[,2])
+forPlot$team = rownames(xgPC$x)
+
+ggplot(data = forPlot, aes(x = PC1,y = PC2)) +
+  geom_point() +
+  geom_text(aes(label = team),hjust = 0, vjust = 0)
+
+```
+
+
+
+
 # Data Analysis
+
+### Question 1
+
+Where on the field most shots on goal came from? Do teams with different formations (the baseline positioning of the players on the field) take shots from locations at different frequencies?
+
+### Question 2
+
+```{r}
+
+
+
+```
+
+
+### Question 3
+
+
 
 # Narrative and Summary
 
