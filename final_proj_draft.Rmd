@@ -348,7 +348,7 @@ Not surprisingly, it looks like there is a pretty strong association between sho
 
 Next we want to explore some different characteristics of teams to see if they have any relationship with win percentage.  We'll start by looking at the average pass length.
 
-```{r,cache=TRUE, warning FALSE}
+```{r,cache=TRUE, warning = FALSE}
 
 pc.data= sum_possession_frame %>% 
           mutate(timespan=as.numeric(timespan)) %>% 
