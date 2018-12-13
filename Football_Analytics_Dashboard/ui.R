@@ -9,11 +9,18 @@
 
 library(shiny)
 
+matches = readRDS("matches.rds")
+matches_list = matches$Versus
+
 # Define UI for application that draws a histogram
 shinyUI(fluidPage(
   
   # Application title
   titlePanel("HUD"),
+  
+  selectInput("teams", label = "Select Match", choices = matches_list),
+  
+  selectInput("GPsp", label = "Plot Type", choices = c("xGP", "XSP")),
   
   textOutput("possession"),
   

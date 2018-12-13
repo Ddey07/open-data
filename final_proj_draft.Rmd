@@ -16,6 +16,13 @@ library(purrr)
 library(tidyverse)
 library("jsonlite")
 library(ggsoccer)
+#library(plyr)
+library(soccermatics)
+library(sp)
+library(spatstat)
+library(lme4)
+library(caret)
+library(geometry)
 
 ```
 
@@ -25,9 +32,9 @@ In an era where data analysis is used to inform decision making in almost every 
 
 Broadly, we define three areas in which data analysis can make (or already does make) a contribution to a professional sports organization: scouting for new players, optimizing game strategy, or providing real time in game recommendations. 
 
-One well known example of using data analysis to inform scouting is the performance of MLB's Oakland Athletics in the 2002 season.  Under the direction of General Manager Billy Beane, the Athletic's organization used data analysis to develop measures that were predictive of future performance that outperformed the current measures used by other teams. In doing so, they were able to use their limited funds to build a team that went on to win the American League West title.  The strategy employed by the A's in the 2002 season has been used and further developed with great success, playing a role in the 2004 Red Sox World Series Victory, the 2016 Chicago Cubs World Series, and the 2017 Houston Astro's World Series. 
+One well known example of using data analysis to inform scouting is the performance of MLB's Oakland Athletics in the 2002 season.  Under the direction of General Manager Billy Beane, the Athletic's organization used data analysis to develop measures that were predictive of future player performance and improved upon the current measures used by other teams. In doing so, they were able to use their limited funds to build a team that went on to win the American League West title.  The strategy employed by the A's in the 2002 season has been used and further developed with great success, playing a role in the 2004 Red Sox World Series Victory, the 2016 Chicago Cubs World Series, and the 2017 Houston Astro's World Series. 
 
-Increasingly, data analysis is being applied in the National Basketball Association and has fundamentally changed the way that coaches and managers structure their teams and approach the game.  Decades ago, teams with tall and strong post players could dominate the game (see the Lakers three consecutive championships on the backs of Shaquile O'neile and Kobe Bryant).  Today, the most successful teams are built around three point shooting and speed in both ball movement and attacking.  Players that we would think of as traditional "big men" can now also shoot from the perimeter, possessing more tools than they did in the past.  This is in part due to increased athleticism and improved training on the part of the players, but also from an insight that if a player can shoot over a certain percentage from the three point line, it becomes an optimal strategy for them to take as many shots as possible. 
+Increasingly, data analysis is being applied in the National Basketball Association and has fundamentally changed the way that coaches and managers structure their teams and approach the game.  Decades ago, teams with tall and strong post players could dominate the game (see the Lakers three consecutive championships on the backs of Shaquile O'Neal and Kobe Bryant).  Today, the most successful teams are built around three point shooting and speed in both ball movement and attacking.  Players that we would think of as traditional "big men" can now also shoot from the perimeter, possessing more tools than they did in the past.  This is in part due to increased athleticism and improved training on the part of the players, but also from an insight that if a player can shoot over a certain percentage from the three point line, it becomes an optimal strategy for them to take as many shots as possible. 
 
 Finally, we return to baseball to illustrate how teams now use data analysis in real time during the game to inform strategic decision making.  Because the locations of all a batters previous successful hits can be stored digitally, constructing and updating a probability distribution of their hits during the game is an easy thing to accomplish.  Many teams now do this and shift the position of their fielders so that they can optimally defend each specific batter.  
 
@@ -124,7 +131,7 @@ In all, this data contains 177,349 event obervations from 64 matches in the 2018
 
 # Exploratory Data Analysis
 
-```{r}
+```{r, cache=TRUE}
 
 load("data/Full_event_compiled.RData")
 
@@ -217,6 +224,8 @@ team_wins_frame$win_percent = team_wins_frame$Wins/team_wins_frame$`Total Games`
 
 ```
 
+
+
 ```{r}
 
 ## getting a goal percentage for each team
@@ -226,7 +235,8 @@ team_wins_frame$win_percent = team_wins_frame$Wins/team_wins_frame$`Total Games`
 #contains the match_id along with each posession. Then convert timestamp
 #to hours,minutes, seconds, and finally calculate a pass spead variable
 
-all.data = all.data %>% mutate(match_pos=paste0(match_id,"_",possession), 
+all.data = all.data %>% 
+  mutate(match_pos=paste0(match_id,"_",possession), 
             timehms=as.POSIXct(strptime(all.data$timestamp,format="%H:%M:%S")),
             pass.speed= pass.length/duration)
 
@@ -325,7 +335,8 @@ teams_goals_wins = merge(goals_frame, team_wins_frame, by = "Team")
 
 ggplot(data = teams_goals_wins, aes(x = shot_perc,y = win_percent)) +
   geom_jitter() +
-  labs(x = "Shot Percentage", y = "Win Percentage") + 
+  labs(x = "Goal Percentage", y = "Win Percentage",
+       title = "Win Percentage vs Goal Percentage") + 
   geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
   
 
@@ -333,6 +344,137 @@ ggplot(data = teams_goals_wins, aes(x = shot_perc,y = win_percent)) +
 
 ```
 
+Not surprisingly, it looks like there is a pretty strong association between shot and win percentage. 
+
+Next we want to explore some different characteristics of teams to see if they have any relationship with win percentage.  We'll start by looking at the average pass length.
+
+```{r,cache=TRUE, warning FALSE}
+
+pc.data= sum_possession_frame %>% 
+          mutate(timespan=as.numeric(timespan)) %>% 
+          select(match_id, match_pos,poss.team,def.team,passcount,
+                 pass.under.pressure,timespan,time.under.pressure,high.pass,
+                 pass.length,pass.speed, shot, goal, poss.team, def.team, xG) %>% 
+          filter(timespan >0)
+
+r = rle(pc.data$poss.team)
+pc.data$poss.run=rep(seq_along(r$lengths), r$lengths)
+pc.norun= pc.data
+
+possession_loc=function(x){
+  poss.id=(pc.data[pc.data$poss.run==x,])$match_pos
+  poss.team=unique((pc.data[pc.data$poss.run==x,])$poss.team)
+  poss.loc = all.data %>% subset(match_pos %in% poss.id) %>% filter(type.name %in%
+                                  c("Pass","Shot","Dribble") & team.name==poss.team) %>%
+                        select(start.x,start.y)
+  
+  hpts <- chull(poss.loc$start.x, poss.loc$start.y)
+  hpts <- c(hpts, hpts[1])
+  ar <- polyarea(poss.loc[hpts,1],poss.loc[hpts,2])
+  loc.goal <- rbind(poss.loc,c(120,40))
+  d <- as.matrix(dist(loc.goal, diag=TRUE,upper=TRUE))
+  d.goal <- d[nrow(loc.goal),][-nrow(loc.goal)]
+  start <- c(head(poss.loc$start.x,1), head(poss.loc$start.y,1))
+  end <- c(tail(poss.loc$start.x,1), tail(poss.loc$start.y,1))
+  start1 <- start - c(120,40)
+  end1 <- end - c(120,40)
+  ang.goal <- acos(sum(start1*end1)/(sqrt(sum(start1^2)) * sqrt(sum(end1^2))))
+  ang.play <- acos(abs(end[1] - start[1])/sqrt(sum((start-end)^2)))
+  return(list(chull.area=ar,dist.to.goal=min(d.goal), ang.goal= ang.goal, ang.play=ang.play, vert.dist=end[1]-start[1]))
+  
+}
+
+loc.data <- lapply(unique(pc.data$poss.run),function(x){tryCatch(possession_loc(x),error=function(e){rep(NA,5)})})
+loc.cov <- t(matrix(unlist(loc.data),nrow=5))
+
+
+pc.data <- pc.data %>% group_by(poss.run) %>% 
+        summarise(match_id=unique(match_id),breaks= n(),
+                  timespan=sum(timespan,na.rm = TRUE),
+                  time.under.pressure=sum(time.under.pressure,na.rm = TRUE), 
+                  shot=sum(as.numeric(shot), na.rm = TRUE), 
+                  goal=sum(as.numeric(goal), na.rm = TRUE),
+                  pass.length=sum(passcount*pass.length,na.rm=TRUE)/sum(passcount, na.rm = TRUE),
+                  pass.speed=sum(passcount*pass.speed,na.rm=TRUE)/sum(passcount, na.rm = TRUE),
+                  poss.team=unique(poss.team), 
+                  def.team=unique(def.team),
+                  high.pass=sum(high.pass, na.rm=TRUE), 
+                  pass.under.pressure= sum(pass.under.pressure, na.rm = TRUE), 
+                  xG=mean(xG,na.rm = TRUE), passcount=sum(passcount,na.rm=TRUE)) %>%
+                  mutate(shot=factor(shot), goal=factor(goal))
+
+pc.data <- data.frame(pc.data,chull.area=loc.cov[,1],dist.to.goal=loc.cov[,2], 
+                      ang.goal= loc.cov[,3], ang.play=loc.cov[,4], vert.dist=loc.cov[,5])
+
+outlierreplacement <- function(dataframe){
+  dataframe %>%          
+    map_if(is.numeric, ~ replace(.x, .x %in% boxplot.stats(.x, coef=5)$out, NA)) %>%
+    bind_cols 
+}
+
+pc.data.clean <- data.frame(pc.data %>% 
+                select(poss.run, poss.team, def.team, match_id,shot, goal, xG, timespan),
+                          outlierreplacement(pc.data %>% 
+                select(time.under.pressure, pass.length, pass.speed, passcount, 
+                       pass.under.pressure,high.pass, chull.area, dist.to.goal, vert.dist)))
+
+avg_pass_length = pc.data.clean %>%
+      group_by(poss.team) %>% 
+      summarise(avg=mean(pass.length, na.rm=TRUE))
+  
+ggplot(data = avg_pass_length,aes(x=reorder(poss.team,-avg),y=avg)) + 
+  geom_bar(stat='identity') + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Team", y = "Average Pass Length(meters)", title = "Average Pass Length by Team")
+
+```
+
+So average pass length ranges from almost 30 meters to just over 20 meters.  That's not a huge difference, but I notice that some of the best teams have the shortest average pass length. 
+
+Now let's examine how many passes a team on defense allows the opposing team on average. 
+
+```{r}
+
+avg_pass_allowed = pc.data.clean %>% 
+        group_by(def.team) %>% 
+        summarise(avg=mean(passcount, na.rm=TRUE))
+
+ggplot(data = avg_pass_allowed, aes(x=reorder(def.team,-avg),y=avg)) + 
+  geom_bar(stat='identity') + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = "Team", y = "Average Number of Passes ()", 
+       title = "Passes per by Team")
+
+```
+
+Finally, how do those two measures relate to win percentage? 
+
+
+```{r}
+colnames(avg_pass_allowed) = c("Team", "avg_pass")
+teams_goals_wins = merge(teams_goals_wins, avg_pass_allowed, by = "Team")
+
+ggplot(data = teams_goals_wins, aes(x = avg_pass,y = win_percent)) +
+  geom_jitter() +
+  labs(x = "Average Passes Allowed", y = "Win Percentage",
+       title = "Passes Allowed vs Goal Percentage") + 
+  geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
+
+
+```
+
+```{r}
+
+colnames(avg_pass_length) = c("Team", "avg_length")
+teams_goals_wins = merge(teams_goals_wins, avg_pass_length, by = "Team")
+
+ggplot(data = teams_goals_wins, aes(x = avg_length,y = win_percent)) +
+  geom_jitter() +
+  labs(x = "Average Pass Length (Meters)", y = "Win Percentage",
+       title = "Passes Length vs Goal Percentage") + 
+  geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
+
+```
 
 As stated in the initial questions section, we are interested in seeing if certain play patterns give rise to more effective shots on goal.  Included in this dataset is a measure of the likelihood of a goal for any shot provided by STATSBomb called XG, or expected goal. Here we will look at differences in the mean XG and also successful goal percentage for shots taking place in different play patterns. 
 
@@ -379,11 +521,15 @@ ggplot(data = play_pattern_for_plot, aes(x = play_pattern.name, y = shot.statsbo
   stat_summary(fun.y = mean, geom = "point") + 
   stat_summary(fun.data = mean_se, geom = "errorbar", aes(width = 0.2)) +
   theme(axis.text.x = element_text(angle = 90)) +
-  labs(x = "Play Pattern", y = "Expected Goal Value") 
+  labs(x = "Play Pattern", y = "Average Expected Goal Value", 
+       title = "Expected Goal Value by Type of Play Pattern") 
 
 
 ```
 
+The other play pattern I believe corresponds to a penalty kick, which is why it's XG value is so much higher. The other play patterns have very similar XG values, except for the from keeper play pattern.  This play pattern begins when a keeper gains control of the ball and then puts the ball back into play, which is very interesting because it implies that attacking too strongly can have a negative outcome if the keeper manages to gain control of the ball. 
+
+Below we further investigate the relationship between play pattern and XG by calculatting an average XG by play pattern for each team, and then using PCA to cluster teams along their first two principal components. 
 
 ```{r}
 
@@ -479,7 +625,24 @@ ggplot(data = forPlot, aes(x = PC1,y = PC2)) +
 ```
 
 
+It looks like a good number of teams cluster on the right side, but what is going on with France?
 
+```{r}
+
+france_xg = all.data %>% filter(possession_team.name == "France", type.name == "Shot") %>%
+        select(play_pattern.name, shot.statsbomb_xg, shot.outcome.name) %>%
+        group_by(play_pattern.name) %>%
+        summarise(mean_xg = mean(shot.statsbomb_xg),
+            sd_xg = sd(shot.statsbomb_xg),
+            n_goal = sum(shot.outcome.name == "Goal"),
+            n_missed = sum(shot.outcome.name != "Goal"),
+            prop_goal = n_goal/(n_missed + n_goal))
+
+france_xg
+play_pattern_mean_xg
+```
+
+So France has an unusually large mean xg for play patterns beginning with a goal kick, although they only took one shot from such a play pattern.  Perhaps this one dataset is not sufficient to explain the phenomena of high XG in play patterns beginning with the keeper.  But we do note that a goal kick is another from of play originating from the keeper. 
 
 # Data Analysis
 
@@ -489,8 +652,18 @@ Where on the field most shots on goal came from? Do teams with different formati
 
 ### Question 2
 
+Since we have found that shots taken in a play pattern beginning with the keeper tend to have the highest XG value on average, we will slightly modify question 2.  Now we will investigate where on the field keepers are sending the ball, and if this differs based on the formation of the opposing team.  We will use play patterns that start with both a goal kick or keeper throw in, since both of these patterns of play start with the keeper. 
+
 ```{r}
 
+saves = all.data %>% 
+  filter(goalkeeper.outcome.name == "Collected" | goalkeeper.outcome.name == "Saved Twice" |
+           goalkeeper.outcome.name == "Claim" | goalkeeper.outcome.name == "Collected Twice")
+
+keepers = select(saves,player.name, team.name)
+keepers = keepers$player.name
+
+goal_passes = all.data %>% filter(type.name == "Pass", player.name %in% keepers)
 
 
 ```
