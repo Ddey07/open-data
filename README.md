@@ -48,6 +48,10 @@ Where on the field do most shots come from? Does this differ between formations?
 
 To answer this question we employed a marked Poisson point process, so that we could adjust for the effect of both teams and players.  Further details can be found in the Rmarkdown HTML file within our [repository](https://github.com/Ddey07/open-data).  We found that the frequency of turnovers at specific locations does tend to vary by formation, but that when these turnovers lead to shots, the shots happen in very similar locations.  See the plots below which are divided by formation type. 
 
+![Turnovers and Shots1](images/shots_turnovers1.png)
+![Turnovers and Shots2](images/shots_turnovers2.png)
+![Turnovers and Shots3](images/shots_turnovers3.png)
+
 #### Objective 2
 
 What patterns of play give rise to the most effective shots? 
@@ -57,6 +61,11 @@ To answer this question we calculated the average XG value for each of the diffe
 ![Mean XG by Play Pattern](images/play_pattern.png)
 
 We decided to explore this further by seeing where goalkeepers were sending the ball from either goal kicks or throws or passes after they had taken control of the ball from the other team. To do this we used the same marked Poisson point process described in objective 1, and looked at the patterns of the end locations of those passes for different formations. Again, we saw that these locations were different based on the formation, and also that the goal keepers were generally sending the ball deep into the opposing teams back field, potentially setting up their players for a counter that can lead to an open shot.  See the figures below for the specifics of each formation. 
+
+![goal keeper1](images/goal_keeper1.png)
+![goal keeper2](images/goal_keeper2.png)
+![goal keeper3](images/goal_keeper3.png)
+
 
 #### Objective 3
 
