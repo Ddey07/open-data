@@ -80,9 +80,6 @@ This question led to the development of possession summary statistics that we us
 The data was downloaded [here](https://github.com/statsbomb/open-data?fbclid=IwAR1Ddi9zAatINELOuo8BCTsx0sRSD5u33R27p1IwQrTsC_pQOMbTRhG3BKo) in JSON format and then processed with the R code below. 
 We have it commented out so that it does not run when this file is knit, but we include it for completeness. 
 
-## Exploratory Data Analysis
-
-
 
 ```{r}
 
@@ -807,11 +804,11 @@ To investigate if there are different patterns of turnover and shot locations fo
 $$ \lambda_S(x_i,y_i) = F_i * poly(x_i,|y_i-40|,2)  $$
 $$ log(\lambda_T(x_i,y_i)) = log(F_i * poly(x_i,|y_i-40|,2)) + log(Z(x_i,|y_i-40|)) $$
 
-where $Z(x_i,y_i)$ is the estimated expected goals surface for turnover locations. We take absolute value of the $y$ axis co-ordinates as we expect the inherent pattern to be symmetric with respect to $x$-axis on the soccer field. 
+where $Z(x_i,y_i)$ is the estimated expected goals surface for turnover locations. We take absolute value of the $y$ axis co-ordinates as we expect the inherent pattern to be symmetric with respect to $x$-axis on the soccer field. We perform tests of complete spatial randomness for a given point pattern, based on quadrat counts and found significant evidence against null hypothesis (p-value $<2.2e-16$).
 
 ```{r}
-
 PP <- ppp(as.numeric(shots.full1$win.x), as.numeric(shots.full1$win.y), c(0,120),c(0,80), marks=factor(shots.full1$DF))
+quadrat.test(PP,nx=3,ny=3)
 # covar <- function(x,y,marks){
 #   return(subset(shots.full,win.x==x & win.y==y & DF==marks)$distance.to.shot[1])
 # }
@@ -827,6 +824,7 @@ pred <- predict(fit, ngrid=c(80,120), type="cif")
 
 ## Fitting PPM to shot location data
 PP.shot <- ppp (as.numeric(shots.full1$start.x), as.numeric(shots.full1$start.y), c(0,120),c(0,80), marks=factor(shots.full1$DF))
+quadrat.test(PP.shot,nx=3,ny=3)
 fit.shot=ppm(PP.shot ~  marks * polynom(x,y,2), Poisson())
 
 pred2 <- predict(fit.shot,ngrid=c(80,120), type="cif")
@@ -834,7 +832,7 @@ pred2 <- predict(fit.shot,ngrid=c(80,120), type="cif")
 
 Once we get the predicted surface,
 
-```{r}
+```{r, cache=TRUE}
 DF.shot.heatmap <- function(DF){
   
   ### Turnover heatmap
@@ -878,14 +876,20 @@ DF.shot.heatmap <- function(DF){
                    fill = "gray90") + theme_pitch()+ geom_raster(aes(fill=value), alpha=0.7) +
     scale_fill_distiller(palette = "Spectral") + 
     labs(fill="Intensity", 
-         title=paste("Intensity of locations from where shots are conceded from open play"))
+         title=paste("Intensity of locations of shots conceded from open play"))
   
-  
+  L <- length(teamnames)
+  teamnames1 <- teamnames[1:as.integer(L/2)]
+  teamnames2 <- teamnames[-(1:as.integer(L/2))]
   
   #as.data.frame(as.cimg(exp(t(pred.mat))))
-               
+  if(L <=7){             
   grid.arrange(G1, G2, nrow = 2, top=paste("Team Formation:",DF), 
                bottom=paste("Teams:", paste(teamnames,collapse = ", ")))
+  } else {
+    grid.arrange(G1, G2, nrow = 2, top=paste("Team Formation:",DF), 
+               bottom=paste("Teams:", paste(teamnames1,collapse = ", "),"\n",paste(teamnames2,collapse = ", ")))
+  }
 
 }
 
@@ -971,8 +975,18 @@ DF.gk.heatmap <- function(DF){
          title=paste("Intensity of end-locations of goalkeeper passes"))
   #as.data.frame(as.cimg(exp(t(pred.mat))))
                 
+  L <- length(teamnames)
+  teamnames1 <- teamnames[1:as.integer(L/2)]
+  teamnames2 <- teamnames[-(1:as.integer(L/2))]
+  
+  #as.data.frame(as.cimg(exp(t(pred.mat))))
+  if(L <=7){             
   grid.arrange(G1, nrow = 1, top=paste("Team Formation:",DF), 
                bottom=paste("Teams:", paste(teamnames,collapse = ", ")))
+  } else {
+    grid.arrange(G1, nrow = 1, top=paste("Team Formation:",DF), 
+               bottom=paste("Teams:", paste(teamnames1,collapse = ", "),"\n",paste(teamnames2,collapse = ", ")))
+  }
 
 }
 
@@ -1028,17 +1042,49 @@ train_id <- createDataPartition((pc.complete$shot)!=0, p = 0.7,
 train <- pc.complete[train_id, ]
 test  <- pc.complete[-train_id, ]
 
+##Cross-validated AUC
+train$Y <- factor(train$shot!=0)
+levels(train$Y) <- c("A","B")
+fit.glm <-glm(Y ~ timespan + pass.length + pass.speed + I(time.under.pressure/timespan) + I(pass.under.pressure/passcount) + passcount + chull.area + dist.to.goal + vert.dist, data=train, family=binomial())
+fit.glm <- step(fit.glm)
+
+control <- trainControl(method="cv", number=10, classProbs = TRUE,summaryFunction = twoClassSummary)
+metric <- "ROC"
+
+fit_glm <- train(formula(fit.glm), data=train,
+                     method="glm", metric=metric, trControl=control,tuneLength = 30)
+
+
+fit_glm$results$ROC
+
+##Fitting the correct model
 fit.glm <-glm((shot!=0) ~ timespan + pass.length + pass.speed + I(time.under.pressure/timespan) + I(pass.under.pressure/passcount) + passcount + chull.area + dist.to.goal + vert.dist, data=train, family=binomial())
 fit.glm <- step(fit.glm)
+
+##Test AUC
 fit.pred <- predict(fit.glm, test, type="response")
 test <- data.frame(test,fit.pred)
 pROC::roc(test$shot!=0 ~ fit.pred)
 
+##Cross-validated RMSE
+fit.xg <-glm(xG ~ timespan + pass.length + pass.speed + I(time.under.pressure/timespan) + I(pass.under.pressure/passcount) + passcount + chull.area + dist.to.goal + vert.dist, data=subset(train,shot != 0), family=Gamma())
+fit.glm <- step(fit.glm)
+
+control <- trainControl(method="cv", number=10)
+metric <- "RMSE"
+
+fit_xg <- train(formula(fit.xg), data=subset(train,shot != 0),
+                     method="glm", family=Gamma(),metric=metric, trControl=control,tuneLength = 30)
+
+fit_xg$results$RMSE
+
+## Fitting the model
 fit.xg <- glm(xG ~ timespan + pass.length + pass.speed + I(time.under.pressure/timespan) + I(pass.under.pressure/passcount) + passcount + chull.area + dist.to.goal + vert.dist, data=subset(train,shot != 0), family=Gamma())
 fit.xg <- step(fit.xg)
 fit.xg.pred <- predict(fit.xg, test, type="response")
 test <- data.frame(test, xg.pred=fit.pred*fit.xg.pred)
-mean(((test$xG) - fit.xg.pred)^2)
+### Test RMSE
+sqrt(mean(((test$xG) - fit.xg.pred)^2))
 
 ##### Scoring each possession sequence
 pc.data$xSP = predict(fit.glm, pc.data, ty="response")
@@ -1046,7 +1092,7 @@ pc.data$xGP= pc.data$xSP * predict(fit.xg, pc.data, ty="response")
 
 ```
 
-We use backward selection to get optimum set of predictors and observe a test set AUC of $0.95$ and mean-squared error of $0.002$. We did this for different seeds and observed similar results. 
+We use backward selection to get optimum set of predictors and observe a 10-fold cross-validated AUC for $0.95$ for shot prediction on training set and AUC of $0.95$ on test. Also, we observe 10-fold cross-validated root mean-squared error of $0.08$ for xG on train set and RMSE for test set to be $0.04$.
 
 Once we validate the prediction power of this model, we predict two numbers for each possession sequence in the world cup as follows: 
 
@@ -1056,7 +1102,7 @@ Now, we define $P_M^A(t)$ to be the set of possessions that happened before time
 
 $nPSP_M (t)=\sum_{i \in P_M^A(t)} xPSP_i - \sum_{i \in P_M^D(t)} xPSP_i$ and $nPGP_M(t)=\sum_{i \in P_M^A(t)} xPGP_i - \sum_{i \in P_M^D(t)} xPGP_i$. These two variable which varies over time $t$ sort of gives us an idea about the match control coefficient for a certain team at time $t$. 
 
-We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: [shiny app](https://www.shinyapps.io/admin/#/application/617382)
+We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: [Shiny app](https://apita.shinyapps.io/football_analytics_dashboard/)
 
 # Narrative and Summary
 
