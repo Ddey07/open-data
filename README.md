@@ -95,7 +95,7 @@ The data set with which were working could be explored for at least another mont
 
 [Github Repository](https://github.com/Ddey07/open-data)
 
-[Rmarkdown html]()
+[Rmarkdown html](https://github.com/Ddey07/open-data/blob/master/final_proj_draft.html)
 
 [Rmarkdown RMD]()
 
