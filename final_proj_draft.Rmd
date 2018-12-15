@@ -1056,7 +1056,7 @@ Now, we define $P_M^A(t)$ to be the set of possessions that happened before time
 
 $nPSP_M (t)=\sum_{i \in P_M^A(t)} xPSP_i - \sum_{i \in P_M^D(t)} xPSP_i$ and $nPGP_M(t)=\sum_{i \in P_M^A(t)} xPGP_i - \sum_{i \in P_M^D(t)} xPGP_i$. These two variable which varies over time $t$ sort of gives us an idea about the match control coefficient for a certain team at time $t$. 
 
-We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: **put link here**
+We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: [shiny app](https://www.shinyapps.io/admin/#/application/617382)
 
 # Narrative and Summary
 

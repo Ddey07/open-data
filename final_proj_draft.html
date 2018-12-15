@@ -267,10 +267,12 @@ library(grid)</code></pre>
 <li>Can we develop team level summary measures that are predictive of team performance? Data with such a fine grain of temporal detail can quickly become overwhelming. Summary measures such as these would be tremendously useful for a soccer club.</li>
 </ol>
 <p>This question led to the development of possession summary statistics that we used to predict both if a shot will take place, and what the XG value for that shot would be.</p>
-</div>
-<div id="data" class="section level1">
-<h1>Data</h1>
+<div id="data" class="section level2">
+<h2>Data</h2>
 <p>The data was downloaded <a href="https://github.com/statsbomb/open-data?fbclid=IwAR1Ddi9zAatINELOuo8BCTsx0sRSD5u33R27p1IwQrTsC_pQOMbTRhG3BKo">here</a> in JSON format and then processed with the R code below. We have it commented out so that it does not run when this file is knit, but we include it for completeness.</p>
+</div>
+<div id="exploratory-data-analysis" class="section level2">
+<h2>Exploratory Data Analysis</h2>
 <pre class="r"><code># #Reading match data
 # setwd(&quot;./data/matches&quot;)
 # match.json.1 &lt;- jsonlite::fromJSON(list.files()[1],flatten = TRUE)
@@ -332,7 +334,8 @@ library(grid)</code></pre>
 # </code></pre>
 <p>In all, this data contains 177,349 event obervations from 64 matches in the 2018 FIFA World Cup.</p>
 </div>
-<div id="exploratory-data-analysis" class="section level1">
+</div>
+<div id="exploratory-data-analysis-1" class="section level1">
 <h1>Exploratory Data Analysis</h1>
 <pre class="r"><code>load(&quot;data/Full_event_compiled.RData&quot;)</code></pre>
 <p>To start let’s look into some descriptive type aspects of the data. Specifically, let’s get a feel for how many games, players, teams, shots, etc we have in this dataset.</p>
@@ -1307,7 +1310,7 @@ pc.data$xGP= pc.data$xSP * predict(fit.xg, pc.data, ty=&quot;response&quot;)</co
 <p><span class="math inline">\(xPSP_i= \hat{P(Y_i=1|X_i)}\)</span> and <span class="math inline">\(xPGP_i=\hat{P(Y_i=1|X_i)} * \hat{E(G_i|Y_i=1,X_i)}\)</span>.</p>
 <p>Now, we define <span class="math inline">\(P_M^A(t)\)</span> to be the set of possessions that happened before time <span class="math inline">\(t\)</span> when team <span class="math inline">\(M\)</span> was in attack and <span class="math inline">\(P_M^D (t)\)</span> be the set of possessions that happened before time <span class="math inline">\(t\)</span>, then we define two statistics as follows:</p>
 <p><span class="math inline">\(nPSP_M (t)=\sum_{i \in P_M^A(t)} xPSP_i - \sum_{i \in P_M^D(t)} xPSP_i\)</span> and <span class="math inline">\(nPGP_M(t)=\sum_{i \in P_M^A(t)} xPGP_i - \sum_{i \in P_M^D(t)} xPGP_i\)</span>. These two variable which varies over time <span class="math inline">\(t\)</span> sort of gives us an idea about the match control coefficient for a certain team at time <span class="math inline">\(t\)</span>.</p>
-<p>We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: <strong>put link here</strong></p>
+<p>We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: <a href="https://www.shinyapps.io/admin/#/application/617382">shiny app</a></p>
 </div>
 </div>
 <div id="narrative-and-summary" class="section level1">
