@@ -1,7 +1,12 @@
 ---
 title: "The Good, The Bad, and The Ugly of the Beautiful Game"
 author: "Debangan Dey, Andrew Pita"
-output: html_document
+output: 
+  html_document:
+   toc: true
+   toc_float: true
+   toc_depth: 3
+bibliography: ref.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +28,9 @@ library(spatstat)
 library(lme4)
 library(caret)
 library(geometry)
+library(spatial)
+library(gridExtra)
+library(grid)
 
 ```
 
@@ -32,7 +40,7 @@ In an era where data analysis is used to inform decision making in almost every 
 
 Broadly, we define three areas in which data analysis can make (or already does make) a contribution to a professional sports organization: scouting for new players, optimizing game strategy, or providing real time in game recommendations. 
 
-One well known example of using data analysis to inform scouting is the performance of MLB's Oakland Athletics in the 2002 season.  Under the direction of General Manager Billy Beane, the Athletic's organization used data analysis to develop measures that were predictive of future player performance and improved upon the current measures used by other teams. In doing so, they were able to use their limited funds to build a team that went on to win the American League West title.  The strategy employed by the A's in the 2002 season has been used and further developed with great success, playing a role in the 2004 Red Sox World Series Victory, the 2016 Chicago Cubs World Series, and the 2017 Houston Astro's World Series. 
+One well known example of using data analysis to inform scouting is the performance of MLB's Oakland Athletics in the 2002 season.  Under the direction of General Manager Billy Beane, the Athletic's organization used data analysis to develop measures that were predictive of future player performance and improved upon the current measures used by other teams. In doing so, they were able to use their limited funds to build a team that went on to win the American League West title.  The strategy employed by the A's in the 2002 season has been used and further developed with great success, playing a role in the 2004 Red Sox World Series victory, the 2016 Chicago Cubs World Series victory, and the 2017 Houston Astro's World Series victory.
 
 Increasingly, data analysis is being applied in the National Basketball Association and has fundamentally changed the way that coaches and managers structure their teams and approach the game.  Decades ago, teams with tall and strong post players could dominate the game (see the Lakers three consecutive championships on the backs of Shaquile O'Neal and Kobe Bryant).  Today, the most successful teams are built around three point shooting and speed in both ball movement and attacking.  Players that we would think of as traditional "big men" can now also shoot from the perimeter, possessing more tools than they did in the past.  This is in part due to increased athleticism and improved training on the part of the players, but also from an insight that if a player can shoot over a certain percentage from the three point line, it becomes an optimal strategy for them to take as many shots as possible. 
 
@@ -46,6 +54,11 @@ In this project we attempt to utilize data collected by Stats Bomb during the 20
 
 # Related Work
 
+In general, there are different types of discrete regression models that people have used so far to analyze goals and shots in soccer.[@goddard05] used bivariate Poisson and ordered probit regression models to forecast number of goals scored and conceded in soccer matches based on different covariates. The authors here analyzed data from English football and learned that the number of goals in a match depends mostly on the recent home performances of the home side and the recent away performances of the away side. Player-related or shot-related approaches have been studied by a few authors as well. One of the most popular methods in this regard is a study in[@asa16]. Analyzing data from the Major League Soccer (MLS), the authors showed that the shot conversion rates significantly depend on many factors, including the distance, angle and the body part used when a shot is taken. Simple logistic regression techniques were the main components of this study. In an earlier paper,[@moura07] dealt with data from Brazilian first division championship matches and analyzed shots to goal strategies based on the field position from where the ball was collected and the length of the passing sequence leading to a goal. Contrary to the popular belief, they found that the ball possessions resulting in shots to goal usually start in the defensive field of the scoring teams. So far as the passing sequences are concerned, this study showed that either short (2 to 5) or very long (10 or more) sequences significantly improve the conversion rates. This second finding corroborated what[@hughes05] found before. 
+
+Finally, we cite two works that used the situation in a small time-window just preceding the event of interest. First, [@jordet13] used English Premier League data to investigate how visual exploratory behaviors before receiving the ball affect the probability of completing the next pass. They found that the players who show extensive visual exploratory behaviors right before receiving a ball are more successful in completing a pass. In another recent study,[@lucey14] analyzed the spatiotemporal patterns of the ten-second window of play before a shot was fired. They extracted some strategic features from the data and used them to present a method that estimates the likelihood of a team scoring a goal. This study showed that not only is the game phase (corner, free-kick, open-play, counter attack etc.) important, but the features such as defender proximity, interaction of surrounding players and speed of play coupled with the shot location also play an impact on determining the likelihood of a team scoring a goal. 
+
+We aim to unify these approaches to make insightful graphics helpful for managers to select their teams and provide real-time game control prediction to improve during game management process. 
 
 
 # Initial Questions
@@ -56,12 +69,20 @@ We began with mostly descriptive questions to get a feel for the data and to dev
 
 2) What patterns of play give rise to the most effective shots? A play pattern describes the setting in which events of the game unfold.  For example, if a team takes a shot that is saved and held on to by the goal keeper, then the next pattern of play begins with the keeper throwing or kicking the ball to one of his teammates.  Other examples of patterns of play include play beginning from corner kicks, from throw ins, or from set pieces following a penalty. 
 
+In the course of our exploratory analysis we found that across all teams play patterns that began with the keeper on average led to shots with a higher XG value.  We then changed the direction of this question, to investigate what keepers were doing that could explain this high mean XG. 
+
 3) Can we develop team level summary measures that are predictive of team performance? Data with such a fine grain of temporal detail can quickly become overwhelming. Summary measures such as these would be tremendously useful for a soccer club. 
 
-# Data
+This question led to the development of possession summary statistics that we used to predict both if a shot will take place, and what the XG value for that shot would be. 
 
-The data was downloaded here []() in JSON format and then processed with the R code below. 
+## Data
+
+The data was downloaded [here](https://github.com/statsbomb/open-data?fbclid=IwAR1Ddi9zAatINELOuo8BCTsx0sRSD5u33R27p1IwQrTsC_pQOMbTRhG3BKo) in JSON format and then processed with the R code below. 
 We have it commented out so that it does not run when this file is knit, but we include it for completeness. 
+
+## Exploratory Data Analysis
+
+
 
 ```{r}
 
@@ -161,7 +182,7 @@ So we have data from 64 games, in which 605 players took part, on 32 different t
 
 Given that goals are such a rare event, we wonder whether or not shooting percentage is associated with the number of games a team wins. Below we explore that question. 
 
-```{r}
+```{r,cache=TRUE}
 
 ### seeing how many games each team won out of the total games they played
 
@@ -199,11 +220,11 @@ for (i in 1:nloop) {
   team_name = team_names[i]
   team_home = wins_frame %>% filter(home_team.home_team_name == team_name)
   home_wins = sum(team_home$home_win)
-  home_games = nrow(team_home)
+  home_games = nrow(as.data.frame(team_home))
   
   team_away = wins_frame %>% filter(away_team.away_team_name == team_name)
   away_wins = sum(team_away$away_win)
-  away_games = nrow(team_home)
+  away_games = nrow(as.data.frame(team_away))
   
   wins = home_wins + away_wins
             
@@ -226,7 +247,7 @@ team_wins_frame$win_percent = team_wins_frame$Wins/team_wins_frame$`Total Games`
 
 
 
-```{r}
+```{r,cache=TRUE}
 
 ## getting a goal percentage for each team
 #we are going to do a very similar loop to the one above
@@ -336,8 +357,7 @@ teams_goals_wins = merge(goals_frame, team_wins_frame, by = "Team")
 ggplot(data = teams_goals_wins, aes(x = shot_perc,y = win_percent)) +
   geom_jitter() +
   labs(x = "Goal Percentage", y = "Win Percentage",
-       title = "Win Percentage vs Goal Percentage") + 
-  geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
+       title = "Win Percentage vs Goal Percentage")
   
 
 
@@ -406,11 +426,13 @@ pc.data <- pc.data %>% group_by(poss.run) %>%
 pc.data <- data.frame(pc.data,chull.area=loc.cov[,1],dist.to.goal=loc.cov[,2], 
                       ang.goal= loc.cov[,3], ang.play=loc.cov[,4], vert.dist=loc.cov[,5])
 
+
 outlierreplacement <- function(dataframe){
   dataframe %>%          
     map_if(is.numeric, ~ replace(.x, .x %in% boxplot.stats(.x, coef=5)$out, NA)) %>%
     bind_cols 
 }
+
 
 pc.data.clean <- data.frame(pc.data %>% 
                 select(poss.run, poss.team, def.team, match_id,shot, goal, xG, timespan),
@@ -442,10 +464,12 @@ avg_pass_allowed = pc.data.clean %>%
 ggplot(data = avg_pass_allowed, aes(x=reorder(def.team,-avg),y=avg)) + 
   geom_bar(stat='identity') + 
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(x = "Team", y = "Average Number of Passes ()", 
-       title = "Passes per by Team")
+  labs(x = "Team", y = "Average Number of Passes Allowed", 
+       title = "Passes Allowed per by Team")
 
 ```
+
+It looks as though some of the more recognizable good teams have a small number of passes allowed on defense. This makes sense, as they are probably heavily pressuring the opposing team. This could be a useful team level defensive summary measure. 
 
 Finally, how do those two measures relate to win percentage? 
 
@@ -457,8 +481,7 @@ teams_goals_wins = merge(teams_goals_wins, avg_pass_allowed, by = "Team")
 ggplot(data = teams_goals_wins, aes(x = avg_pass,y = win_percent)) +
   geom_jitter() +
   labs(x = "Average Passes Allowed", y = "Win Percentage",
-       title = "Passes Allowed vs Goal Percentage") + 
-  geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
+       title = "Passes Allowed vs Goal Percentage")
 
 
 ```
@@ -471,12 +494,11 @@ teams_goals_wins = merge(teams_goals_wins, avg_pass_length, by = "Team")
 ggplot(data = teams_goals_wins, aes(x = avg_length,y = win_percent)) +
   geom_jitter() +
   labs(x = "Average Pass Length (Meters)", y = "Win Percentage",
-       title = "Passes Length vs Goal Percentage") + 
-  geom_text(aes(label = ifelse(win_percent > 0.5,Team,"")), hjust = 0, vjust = 0)
+       title = "Passes Length vs Goal Percentage")
 
 ```
 
-As stated in the initial questions section, we are interested in seeing if certain play patterns give rise to more effective shots on goal.  Included in this dataset is a measure of the likelihood of a goal for any shot provided by STATSBomb called XG, or expected goal. Here we will look at differences in the mean XG and also successful goal percentage for shots taking place in different play patterns. 
+As stated in the initial questions section, we are interested in seeing if certain play patterns give rise to more effective shots on goal.  Included in this dataset is a measure called XG (excpected goal), which is calculated and provided by STATSBomb.  It is designed to be a measure of the likelihood of a goal for any shot. Here we will look at differences in the mean XG and also successful goal percentage for shots taking place in different play patterns. 
 
 ```{r}
 
@@ -527,11 +549,11 @@ ggplot(data = play_pattern_for_plot, aes(x = play_pattern.name, y = shot.statsbo
 
 ```
 
-The other play pattern I believe corresponds to a penalty kick, which is why it's XG value is so much higher. The other play patterns have very similar XG values, except for the from keeper play pattern.  This play pattern begins when a keeper gains control of the ball and then puts the ball back into play, which is very interesting because it implies that attacking too strongly can have a negative outcome if the keeper manages to gain control of the ball. 
+The "other" play pattern corresponds to penalty kicks, which is why it's XG value is so much higher. The other play patterns have very similar XG values, except for the from keeper play pattern.  This play pattern begins when a keeper gains control of the ball and then puts the ball back into play, which is very interesting because it implies that attacking too strongly can have a negative outcome if the keeper manages to gain control of the ball. 
 
 Below we further investigate the relationship between play pattern and XG by calculatting an average XG by play pattern for each team, and then using PCA to cluster teams along their first two principal components. 
 
-```{r}
+```{r,cache=TRUE}
 
 team_name = team_names[1]
 team_xg = all.data %>% filter(possession_team.name == team_name, type.name == "Shot") %>%
@@ -642,18 +664,243 @@ france_xg
 play_pattern_mean_xg
 ```
 
-So France has an unusually large mean xg for play patterns beginning with a goal kick, although they only took one shot from such a play pattern.  Perhaps this one dataset is not sufficient to explain the phenomena of high XG in play patterns beginning with the keeper.  But we do note that a goal kick is another from of play originating from the keeper. 
+So France has an unusually large mean XG for play patterns beginning with a goal kick, although they only took one shot from such a play pattern.  Perhaps this one dataset is not sufficient to explain the phenomena of high XG in play patterns beginning with the keeper.  But we do note that a goal kick is another from of play originating from the keeper. 
 
 # Data Analysis
 
 ### Question 1
 
-Where on the field most shots on goal came from? Do teams with different formations (the baseline positioning of the players on the field) take shots from locations at different frequencies?
+Where on the field most shots on goal came from? Do teams with different formations (the baseline positioning of the players on the field) take shots from locations at different frequencies? Is losing ball at certain locations more harmful for certain formations?
+
+From the World Cup 2018 events data, we focus on location information related to shots to answer this question.We have every event location on the field recorded as coordinates inside the $[0,120] * [0,80]$ rectangle. Let $S_{ij}$ be the location of the $i$-th shot and $T_{ij}$ be the location of the turnover which led to $i$-th shot when the defending team was employed in $j$-th kind of formation. We didn't find any possession lasting more than 2 minutes, so, we first filter out data from 2-minute window before shot to find out the turnover location from which the attacking team took possession of the ball.
+
+```{r, cache=TRUE}
+###Storing which position id means what 
+position.info <- all.data %>% select(position.id,position.name) %>% unique
+position.info <- position.info[-1,]
+position.info <- position.info %>% arrange(position.id)
+
+
+###Getting player positions and formation matchwise
+position.data <- data.frame(player.id=numeric(), player.name=character(), position.name=character(), 
+                            match_id= numeric(), team.id=numeric(), team.name=numeric(),tactics.formation=numeric(),
+                            team.status=character())
+
+for (i in unique(all.data$match_id)){
+  all.data.match <- all.data %>% filter(match_id==i) 
+  team1.id=all.data.match[1,]$team.id
+  team1.name = all.data.match[1,]$team.name
+  team1.formation=all.data.match[1,]$tactics.formation
+  
+  team2.id=all.data.match[2,]$team.id
+  team2.name = all.data.match[2,]$team.name
+  team2.formation=all.data.match[2,]$tactics.formation
+  
+  position.data <- rbind(position.data, data.frame(all.data.match$tactics.lineup[[1]][,c(2,3,5)],match_id=i, team.id=team1.id,team.name=team1.name,tactics.formation=team1.formation, team.status="Home"))
+  position.data <- rbind(position.data, data.frame(all.data.match$tactics.lineup[[2]][,c(2,3,5)],match_id=i,team.id=team2.id,team.name=team2.name,tactics.formation=team2.formation, team.status="Away"))
+}
+
+######Shots data
+
+
+shots.sub <-   all.data[,which(unlist(lapply(names(all.data),function(x){grepl(pattern="shot",x)})))]
+
+shots.data <- cbind(all.data %>% select(match_id, index, period, timestamp, minute, second, player.id, team.id, start.x, start.y, play_pattern.name, type.name), 
+                    shots.sub)
+
+shots.data <- shots.data[!is.na(shots.data$shot.statsbomb_xg),]
+
+###### Getting m minute data before shots ########
+m <- 2
+shots.pre <- list()
+
+for(i in 1:nrow(shots.data)){
+  shot.time <- strptime(shots.data$timestamp[i],format="%H:%M:%S")
+  shot.period <- shots.data$period[i]
+  all.data.shot <- subset(all.data,match_id==shots.data[i,]$match_id)
+  all.data.shot$timestamp <- strptime(all.data.shot$timestamp,format="%H:%M:%S")
+  shots.pre[[i]] <- subset(all.data.shot, as.numeric(timestamp - shot.time) <= 0 & as.numeric(timestamp - shot.time) > (-60*m) & period == shot.period & index <= shots.data$index[i])
+}
+
+res.x <- 30
+res.y <- 16
+
+D <- data.frame(x=runif(1000,0,120), y=runif(1000,0,80))
+D <- within(D, {
+  grp.x = cut(x, seq(0,120,by=res.x), labels = FALSE)
+  grp.y = cut(y, seq(0,80,by=res.y), labels = FALSE)
+}) %>% select(grp.x,grp.y) %>% mutate(grid.ind=paste0(grp.x,"_",grp.y)) 
+
+D$grid.ind <- factor(D$grid.ind)
+
+####attributes from shots m-minute window 
+shotwindow.att <- function(i){
+  shot.info <- tail(shots.pre[[i]],1)
+  shot.possession <- subset(shots.pre[[i]], possession == shot.info$possession)
+  attack.team <- shot.info$team.name
+  defend.team <- c(shot.info$home_team.home_team_name,shot.info$away_team.away_team_name)[!(c(shot.info$home_team.home_team_name,shot.info$away_team.away_team_name) %in% shot.info$team.name)]
+  tactics.flag.defence <- subset(all.data, (match_id== shot.info$match_id & team.name==defend.team & type.name == "Tactical Shift" & period < shot.info$period) | (match_id== shot.info$match_id & team.id == shot.info$team.id & type.name == "Tactical Shift" & period == shot.info$period & minute <= shot.info$minute & second < shot.info$second)) 
+  tactics.flag.attack <- subset(all.data, (match_id== shot.info$match_id & team.name==attack.team & type.name == "Tactical Shift" & period < shot.info$period) | (match_id== shot.info$match_id & team.id == shot.info$team.id & type.name == "Tactical Shift" & period == shot.info$period & minute <= shot.info$minute & second < shot.info$second)) 
+  attack.formation <- ifelse(nrow(tactics.flag.attack)>0,tail(tactics.flag.attack$tactics.formation,1),unique(subset(position.data, team.id == shot.info$team.id & match_id == shot.info$match_id)$tactics.formation))
+  defence.formation <- ifelse(nrow(tactics.flag.defence)>0,tail(tactics.flag.defence$tactics.formation,1),unique(subset(position.data, team.id != shot.info$team.id & match_id == shot.info$match_id)$tactics.formation))
+  time.to.shoot <- as.numeric(shot.info$timestamp - shot.possession$timestamp[1])
+  distance.to.shot <- as.numeric(dist(rbind(c(shot.info$start.x,shot.info$start.y), c(shot.possession$start.x[1], shot.possession$start.y[1]))))
+  speed.of.attack <- distance.to.shot/time.to.shoot
+  shot.xG <- shot.info$shot.statsbomb_xg
+  pressure.escaped <- nrow(subset(shot.possession, type.name=="Pressure")) 
+  
+  # if(shot.info$start.x > 60){
+  #   shot.possession$start.x= abs(shot.possession$start.x - 120)
+  #   shot.possession$start.y= abs(shot.possession$start.y - 80)
+  # }
+  
+  location.grid <- within(shot.possession, {
+    grp.x = cut(start.x, seq(0,120,by=res.x), labels = FALSE, include.lowest = TRUE)
+    grp.y = cut(start.y, seq(0,80,by=res.y), labels = FALSE, include.lowest = TRUE)
+  }) %>% select(grp.x,grp.y) %>% mutate(grid.ind=paste0(grp.x,"_",grp.y)) 
+  
+  shot.possession <- data.frame(shot.possession,location.grid)
+  shot.possession$grid.ind <- factor(shot.possession$grid.ind, levels=levels(D$grid.ind))
+  
+  pressure.location <-unlist((shot.possession %>% select(-timestamp) %>% filter(type.name=="Pressure")%>% group_by(grid.ind) %>% 
+                                  summarise(pressure.count=n()) %>% complete(grid.ind, fill = list(pressure.count= 0)))[,2])
+  
+  pass.location <-unlist((shot.possession %>% select(-timestamp) %>% filter(type.name=="Pass")%>% group_by(grid.ind) %>% 
+    summarise(pass.count=n()) %>% complete(grid.ind, fill = list(pass.count= 0)))[,2])
+  
+  win.location <- head(shot.possession$grid.ind,1)
+  win.x= as.numeric(na.omit(shot.possession$start.x)[1])
+  win.y= as.numeric(na.omit(shot.possession$start.y)[1])
+    
+  covars <- t(data.frame(c(AT=attack.team,DT=defend.team,AF=attack.formation, DF=defence.formation,time.to.shoot=time.to.shoot, distance.to.shot=distance.to.shot, speed=speed.of.attack, xG=shot.xG, n.pressure=pressure.escaped, unlist(pressure.location), unlist(pass.location))))
+  covars <- cbind(covars,win.x,win.y,win.location)
+  return(covars)
+}
+
+###recording 2 minute frames from all shotwindows 
+shots.att <- unlist(shotwindow.att(1))
+
+for(i in 2:nrow(shots.data)){
+  temp <- rbind(shots.att,shotwindow.att(i))
+  shots.att <- temp
+  #print(i)
+}
+
+shots.full <- data.frame(shots.data,shots.att[,c(1,2)],apply(shots.att[,-c(1,2)],2,as.numeric))
+shots.full$Goal <- shots.full$shot.outcome.name == "Goal"
+shots.full$win.location <- relevel(factor(shots.full$win.location), ref=20)
+shots.full$win.x <- as.numeric(shots.full$win.x)
+shots.full$win.y <- as.numeric(shots.full$win.y)
+shots.full$distance.to.shot <- as.numeric(shots.full$distance.to.shot)
+```
+
+We remove shots corresponding to formations which have less than 15 shots associated with it to ensure we have significant data for a formation to draw associations. We also consider shots which came from open play only. This leaves out set piece or penalty situations when the shot or turnover locations can be determined by factors other than team compositions. 
+
+```{r}
+formation.interest=as.numeric(names(table(shots.full$DF)[which(table(shots.full$DF) > 15)]))
+#### Fitting PPM to ball win location data
+shots.full1= shots.full %>% filter(play_pattern.name=="Regular Play" & DF %in% formation.interest)
+```
+
+To investigate if there are different patterns of turnover and shot locations for different defensive team formation, we model the locations data using a marked Poisson point process with the marks being the formation. To adjust for the team or player effect, I adjust the non-homogeneous intensity function of the point process to the surface of expected goals (xG) from a specific turnover location. We model the intensity function for shots ($\lambda_S$) and turnovers ($\lambda_T$) as follows - 
+
+$$ \lambda_S(x_i,y_i) = F_i * poly(x_i,|y_i-40|,2)  $$
+$$ log(\lambda_T(x_i,y_i)) = log(F_i * poly(x_i,|y_i-40|,2)) + log(Z(x_i,|y_i-40|)) $$
+
+where $Z(x_i,y_i)$ is the estimated expected goals surface for turnover locations. We take absolute value of the $y$ axis co-ordinates as we expect the inherent pattern to be symmetric with respect to $x$-axis on the soccer field. 
+
+```{r}
+
+PP <- ppp(as.numeric(shots.full1$win.x), as.numeric(shots.full1$win.y), c(0,120),c(0,80), marks=factor(shots.full1$DF))
+# covar <- function(x,y,marks){
+#   return(subset(shots.full,win.x==x & win.y==y & DF==marks)$distance.to.shot[1])
+# }
+##fitting surface for xG over ball win location
+fit.sfc2 <- surf.ls(2, data.frame(x=shots.full1$win.x,y=shots.full1$win.y,z=shots.full1$xG))
+trsurf <- trmat(fit.sfc2, 0, 120, 0, 80, 80)
+cov <- as.im(list(x=trsurf$x,y=trsurf$y,z=trsurf$z),W=Window(PP))
+g <- function(y){abs(y-40)}
+fit=ppm(PP ~  marks*polynom(x,g(y),2) + offset(log(Z)), Poisson(), covariates=list(Z=cov))
+
+#covar <- shots.full %>% select(DF,distance.to.shot,time.to.shoot,xG,speed) %>% mutate(DF=factor(DF))
+pred <- predict(fit, ngrid=c(80,120), type="cif")
+
+## Fitting PPM to shot location data
+PP.shot <- ppp (as.numeric(shots.full1$start.x), as.numeric(shots.full1$start.y), c(0,120),c(0,80), marks=factor(shots.full1$DF))
+fit.shot=ppm(PP.shot ~  marks * polynom(x,y,2), Poisson())
+
+pred2 <- predict(fit.shot,ngrid=c(80,120), type="cif")
+```
+
+Once we get the predicted surface,
+
+```{r}
+DF.shot.heatmap <- function(DF){
+  
+  ### Turnover heatmap
+  id <- which(names(pred)==DF)
+  pred.mat <- t(as.matrix(pred[[id]]))
+  pred.df <- data.frame()
+  teamnames <- as.character(unique(shots.full1$DT[shots.full1$DF==as.numeric(DF)]))
+  for(i in 1:nrow(pred.mat)){
+    for(j in 1:ncol(pred.mat)){
+      pred.df = rbind(pred.df,c(i,j,as.numeric((pred.mat)[i,j])))
+    }
+  }
+  
+  colnames(pred.df) <- c("x","y","value")
+  
+  G1 <- ggplot(pred.df,aes(x=x,y=y)) +
+    annotate_pitch(x_scale = 1.2,
+                   y_scale = 0.8,
+                   colour = "gray70",
+                   fill = "gray90") + theme_pitch()+ geom_raster(aes(fill=value), alpha=0.7) + scale_fill_distiller(palette = "Spectral") + 
+    labs(fill="Intensity", title=paste("Intensity of turnover locations leading to shots from open play"))
+  
+  
+  ### Shot location heatmap
+  id <- which(names(pred2)==DF)
+  pred.mat <- t(as.matrix(pred2[[id]]))
+  pred.df <- data.frame()
+  teamnames <- as.character(unique(shots.full1$DT[shots.full1$DF==as.numeric(DF)]))
+  for(i in 1:nrow(pred.mat)){
+    for(j in 1:ncol(pred.mat)){
+      pred.df = rbind(pred.df,c(i,j,as.numeric((pred.mat)[i,j])))
+    }
+  }
+  
+  colnames(pred.df) <- c("x","y","value")
+  
+  G2=ggplot(pred.df,aes(x=x,y=y)) +
+    annotate_pitch(x_scale = 1.2,
+                   y_scale = 0.8,
+                   colour = "gray70",
+                   fill = "gray90") + theme_pitch()+ geom_raster(aes(fill=value), alpha=0.7) +
+    scale_fill_distiller(palette = "Spectral") + 
+    labs(fill="Intensity", 
+         title=paste("Intensity of locations from where shots are conceded from open play"))
+  
+  
+  
+  #as.data.frame(as.cimg(exp(t(pred.mat))))
+               
+  grid.arrange(G1, G2, nrow = 2, top=paste("Team Formation:",DF), 
+               bottom=paste("Teams:", paste(teamnames,collapse = ", ")))
+
+}
+
+#Running over all formations
+for(i in 1:length(formation.interest)){
+   DF.shot.heatmap(as.character(formation.interest[i]))
+  }
+
+```
 
 ### Question 2
 
 Since we have found that shots taken in a play pattern beginning with the keeper tend to have the highest XG value on average, we will slightly modify question 2.  Now we will investigate where on the field keepers are sending the ball, and if this differs based on the formation of the opposing team.  We will use play patterns that start with both a goal kick or keeper throw in, since both of these patterns of play start with the keeper. 
 
+Using similar ideas as 1, we again fit inhomogeneous Poisson point process to the pass end locations of goalkeeper passes and mark them by the defensive formation the goalkeeper was playing against. 
 ```{r}
 
 saves = all.data %>% 
@@ -668,15 +915,164 @@ goal_passes = all.data %>% filter(type.name == "Pass", player.name %in% keepers)
 
 ```
 
+Below we plot the surface for different formations. 
+
+```{r,cache=TRUE}
+gk.pass.info=function(x){
+shot.info <- goal_passes[i,]
+attack.team <- shot.info$team.name
+defend.team <- c(shot.info$home_team.home_team_name,shot.info$away_team.away_team_name)[!(c(shot.info$home_team.home_team_name,shot.info$away_team.away_team_name) %in% shot.info$team.name)]
+tactics.flag.defence <- subset(all.data, (match_id== shot.info$match_id & team.name==defend.team & type.name == "Tactical Shift" & period < shot.info$period) | (match_id== shot.info$match_id & team.id == shot.info$team.id & type.name == "Tactical Shift" & period == shot.info$period & minute <= shot.info$minute & second < shot.info$second)) 
+tactics.flag.attack <- subset(all.data, (match_id== shot.info$match_id & team.name==attack.team & type.name == "Tactical Shift" & period < shot.info$period) | (match_id== shot.info$match_id & team.id == shot.info$team.id & type.name == "Tactical Shift" & period == shot.info$period & minute <= shot.info$minute & second < shot.info$second)) 
+attack.formation <- ifelse(nrow(tactics.flag.attack)>0,tail(tactics.flag.attack$tactics.formation,1),unique(subset(position.data, team.id == shot.info$team.id & match_id == shot.info$match_id)$tactics.formation))
+defence.formation <- ifelse(nrow(tactics.flag.defence)>0,tail(tactics.flag.defence$tactics.formation,1),unique(subset(position.data, team.id != shot.info$team.id & match_id == shot.info$match_id)$tactics.formation))
+return(list(AT=attack.team,DT=defend.team,DF=defence.formation,AF=attack.formation))
+}
+
+gk.att <- unlist(gk.pass.info(1))
+
+for(i in 2:nrow(goal_passes)){
+  temp <- rbind(gk.att,gk.pass.info(i))
+  gk.att <- temp
+  #print(i)
+}
+
+goal_passes=data.frame(goal_passes,apply(gk.att,2,as.character))
+formation.interest=as.numeric(names(table(goal_passes$DF)[which(table(goal_passes$DF) > 15)]))
+goal_passes=subset(goal_passes,DF %in% formation.interest)
+
+PP.gk = ppp (as.numeric(goal_passes$pass.end.x), as.numeric(goal_passes$pass.end.y), c(0,120),c(0,80), marks=factor(goal_passes$DF))
+fit.gk=ppm(PP.gk ~  marks*polynom(x,g(y),2), Poisson())
+
+pred3 <- predict(fit.gk,ngrid=c(80,120), type="cif")
+
+DF.gk.heatmap <- function(DF){
+  
+  ### Turnover heatmap
+  id <- which(names(pred3)==DF)
+  pred.mat <- t(as.matrix(pred3[[id]]))
+  pred.df <- data.frame()
+  teamnames <- as.character(unique(goal_passes$DT[goal_passes$DF==as.numeric(DF)]))
+  for(i in 1:nrow(pred.mat)){
+    for(j in 1:ncol(pred.mat)){
+      pred.df = rbind(pred.df,c(i,j,as.numeric((pred.mat)[i,j])))
+    }
+  }
+  
+  colnames(pred.df) <- c("x","y","value")
+  
+  G1 <- ggplot(pred.df,aes(x=x,y=y)) +
+    annotate_pitch(x_scale = 1.2,
+                   y_scale = 0.8,
+                   colour = "gray70",
+                   fill = "gray90") + theme_pitch()+ geom_raster(aes(fill=value), alpha=0.7) +
+    scale_fill_distiller(palette = "Spectral") + 
+    labs(fill="Intensity", 
+         title=paste("Intensity of end-locations of goalkeeper passes"))
+  #as.data.frame(as.cimg(exp(t(pred.mat))))
+                
+  grid.arrange(G1, nrow = 1, top=paste("Team Formation:",DF), 
+               bottom=paste("Teams:", paste(teamnames,collapse = ", ")))
+
+}
+
+#Running over all formations
+for(i in 1:length(formation.interest)){
+   DF.gk.heatmap(as.character(formation.interest[i]))
+ }
+
+```
 
 ### Question 3
+Can we develop team level summary measures from possession sequences that are reflective of team performance? Data with such a fine grain of temporal detail can quickly become overwhelming. Summary measures such as these would be tremendously useful for a soccer club. 
+
+This is a complex question to answer and we think breaking the game into a string of possession sequences is the way to answer it. So, as a next step, we find out each possession sequence and define a few statistics which can characterize that particular possession sequence - 
+
+1. Timespan: The duration of the possession sequence
+2. Passcount: Number of successful passes played in a possession sequence. 
+3. Time under pressure: The duration the possessing team was under pressure from the defensive team. 
+4. Pass under pressure: Number of successful passes played by the possessing team under pressure.
+5. Chull area: The area of the convex hull created by the points representing players of the possessing team in that sequnece, its expected to reflect the area over which the possessing team attacked. 
+6. Distance to goal: Distance of the closest point in the possession sequence from the midpoint of goal.
+7. Vertical distance travelled: The difference in $x$-coordinates of the end location and the start location of the possession sequence, which gives the vertical distance travelled by the possessing team. 
+
+For $i$ the possession, we define two outcomes $Y_i$ and $Z_i$(expected gaol from possession) as follows: 
+$Y_i= \mathbb{1}$[shot happened from the $i$-th possession] and $Z_i= Y_i * G_i + (1-Y_i)*0$, where $G_i$ is the Statsbomb expected goal statistic (xG) if $i$-th possession led to a shot. Let, $X_i$ denote the covariate vector (including intercept) as defined above. 
+
+We model this as follows: 
+
+$logit(P(Y_i=1|X_i))=X_i\beta_1$
+$G_i | Y_i= 1 ~ Gamma(\alpha,\delta_i)$, where $1/\delta_i= X_i\beta_2$. 
+
+We use the data created in exploratory analysis to fit the model. We seperate the data into train ($70\%$) and test ($30\%$) to model evaulation. We don't consider penalties and huge errors which gives rise to xGs which are outliers. 
+
+```{r, cache=TRUE}
+pc.data.clean$xG[pc.data.clean$shot==0]=0
+
+### Removing penalties and errors which give rise to bigger xGs
+xG.out <- boxplot.stats(pc.data.clean$xG[pc.data.clean$xG!=0], coef=5)$out
+pc.complete=subset(pc.data.clean,complete.cases(pc.data.clean) & ! xG %in% xG.out)
+pc.res=prcomp(pc.complete[,-c(1:6)],scale=TRUE)
+
+pc.complete$PC1=pc.res$x[,1]
+pc.complete$PC2=pc.res$x[,2]
 
 
+## random training data
+### Running random forest for prediction
+set.seed(12345)
+train_id <- createDataPartition((pc.complete$shot)!=0, p = 0.7, 
+                                list = FALSE, 
+                                times = 1)
+
+train <- pc.complete[train_id, ]
+test  <- pc.complete[-train_id, ]
+
+fit.glm <-glm((shot!=0) ~ timespan + pass.length + pass.speed + I(time.under.pressure/timespan) + I(pass.under.pressure/passcount) + passcount + chull.area + dist.to.goal + vert.dist, data=train, family=binomial())
+fit.glm <- step(fit.glm)
+fit.pred <- predict(fit.glm, test, type="response")
+test <- data.frame(test,fit.pred)
+pROC::roc(test$shot!=0 ~ fit.pred)
+
+fit.xg <- glm(xG ~ timespan + pass.length + pass.speed + I(time.under.pressure/timespan) + I(pass.under.pressure/passcount) + passcount + chull.area + dist.to.goal + vert.dist, data=subset(train,shot != 0), family=Gamma())
+fit.xg <- step(fit.xg)
+fit.xg.pred <- predict(fit.xg, test, type="response")
+test <- data.frame(test, xg.pred=fit.pred*fit.xg.pred)
+mean(((test$xG) - fit.xg.pred)^2)
+
+##### Scoring each possession sequence
+pc.data$xSP = predict(fit.glm, pc.data, ty="response")
+pc.data$xGP= pc.data$xSP * predict(fit.xg, pc.data, ty="response")
+
+```
+
+We use backward selection to get optimum set of predictors and observe a test set AUC of $0.95$ and mean-squared error of $0.002$. We did this for different seeds and observed similar results. 
+
+Once we validate the prediction power of this model, we predict two numbers for each possession sequence in the world cup as follows: 
+
+$xPSP_i= \hat{P(Y_i=1|X_i)}$ and $xPGP_i=\hat{P(Y_i=1|X_i)} * \hat{E(G_i|Y_i=1,X_i)}$. 
+
+Now, we define $P_M^A(t)$ to be the set of possessions that happened before time $t$ when team $M$ was in attack and $P_M^D (t)$ be the set of possessions that happened before time $t$, then we define two statistics as follows:
+
+$nPSP_M (t)=\sum_{i \in P_M^A(t)} xPSP_i - \sum_{i \in P_M^D(t)} xPSP_i$ and $nPGP_M(t)=\sum_{i \in P_M^A(t)} xPGP_i - \sum_{i \in P_M^D(t)} xPGP_i$. These two variable which varies over time $t$ sort of gives us an idea about the match control coefficient for a certain team at time $t$. 
+
+We built a shiny app here, which shows for a certain match the plot of how these two coefficients vary over time: **put link here**
 
 # Narrative and Summary
 
+We set out to use data from the 2018 FIFA World Cup to develop tools and insights about the game of soccer that could be useful to a soccer club manager or coach.  As compared to other professional sports, such as baseball, basketball, or (American) football, soccer has fewer "success" events that can be measured.  For example, in baseball most teams will score at least a few runs per game, most batters will get at least one hit, and most pitchers will have a handfull of strikeouts.  Similarly, in basketball players will have points in the double digits, a shooting percentage between 20 and 50%, and a handfull of rebounds, assists, or steals.  In soccer however, it's not uncommon for only one or two goals to be scored in the whole game, passes are often intercepted or lost out of bounds, and possession of the ball changes hands very often.  Thus, applying data analysis to the game of soccer requires a different approach than those used in baseball or basketball. 
 
+We began with the thought that two things will be very important for success in a soccer game: 1) controlling possession of the ball, and 2) putting yourself in the best position to score.  Because scoring a goal is such a low percentage event, by maximizing those two elements a team becomes their most competetive.  
 
+In the heatmaps we created to address [Question 1], we find that the shot locations don't differ much according to formations except $3-5-2$, where we see players have to get to be relatively closer to the goal before taking shot, meaning the defenders cover out the space more around final third of the pitch, leaving less room for shots. More interestingly, the vulnerability zone, (the area of the pitch where turning over the ball can be costly by leading to a shot) looks different for different defending team formations. This validates common beliefs like formations like $3-4-3$ or $3-5-2$ don't cover enough spaces on the wings whereas formations like $4-4-2$ can leave space in the middle. Investigating further into this, an inquisitive mind would certainly ask if the goalkeepers are sending the passes to correct region of vulnerability depending on the opposition formation. We can find the answer from the goalkeeper passes intensity heatmap and it looks like they sometimes conform to it but not always. Hence, through our visualizations, we can devise defence straegies like where to put your best defender according to your formation and also attacking instructions like where to hit the goal-kick or send the long passes based on your opponent's formation. 
+
+Due to limited time and resources, we can't address team-specific vulnerability zones but following the same approach, we can help managers pick starting XI and devise strategies based on a team's vulnerability zone heatmap based on the past games of the season. 
+
+Now coming to our next question, our end goal was to build a dashboard which will help track a team's game control in real time and thus help the manager to make necessary changes during game. To do that, we perform a possession-wise analysis and score each possession string based on its potential to turn into shots or goals. Based on the quality of the possession a team had and the possessions the team conceded, we can update a team's expected game control over time. This gives the managers time to react during game and make necessary changes to influence the result. 
+
+Extending this idea, we can score each player based on the score of the possessions the player was involved in. Due to limited time, we couldn't implement this idea but its just a one step up where we can quantify a player's in-game involvement both from the attacking and defensive side. This might be crucial in signing players where you want to replace a certain player with a similar one but who costs you less amount of money. We believe, one the one hand the real-time updating of team's control scores will help game-changing decisions and on the other hand, the player scores will help immensely in scouting new talents. 
+
+#References
 
 
 
