@@ -54,7 +54,7 @@ What patterns of play give rise to the most effective shots?
 
 To answer this question we calculated the average XG value for each of the different play patterns within the dataset. These results can be seen in the figure below.  the "other" play pattern is composed mostly of penalty kicks and thus has a much higher XG value.  XG is a measure provided and calculated by StatsBomb that measures the likelihood of a goal.  We were struck that play patterns starting from the keeper tended to have higher XG values. 
 
-[Mean XG by Play Pattern](images/play_pattern.png)
+![Mean XG by Play Pattern](images/play_pattern.png)
 
 We decided to explore this further by seeing where goalkeepers were sending the ball from either goal kicks or throws or passes after they had taken control of the ball from the other team. To do this we used the same marked Poisson point process described in objective 1, and looked at the patterns of the end locations of those passes for different formations. Again, we saw that these locations were different based on the formation, and also that the goal keepers were generally sending the ball deep into the opposing teams back field, potentially setting up their players for a counter that can lead to an open shot.  See the figures below for the specifics of each formation. 
 
