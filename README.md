@@ -76,7 +76,7 @@ Thus, when looking for summary measures we focused on aspects of possession that
 
 From there we developed a logistic regression model that models the probability of the possession ending in a shot given these measures.  Seeing that this model performed very well (AUC: 0.95), we added another layer. Given that a shot took place, we modeled the expected XG value using a Gamma function. From these two models, we defined to measures, xSP and xGP. xSP is the probability of a shot output by our model given a new set of possession characteristics. We think of xGP as the predicted XG value given a set of possession characteristics, and is obtained by multiplying xSP by the expected XG value. 
 
-In plotting the output of these models for two teams in a match, we saw that they do a good job describing how one team is doing relative to the other. In fact, if you watch one of the world cup matches while looking at the graph, you can almost see when one team starts to get the upper hand against the other.  Therefore, we packaged the model and graphs into a Shiny dashboard as a demonstration of a tool that could be useful for a team to have in real time.  The Shiny app is located [here]().
+In plotting the output of these models for two teams in a match, we saw that they do a good job describing how one team is doing relative to the other. In fact, if you watch one of the world cup matches while looking at the graph, you can almost see when one team starts to get the upper hand against the other.  Therefore, we packaged the model and graphs into a Shiny dashboard as a demonstration of a tool that could be useful for a team to have in real time.  The Shiny app is located [here](https://apita.shinyapps.io/football_analytics_dashboard/).
 
 ## Key Points
 
@@ -85,7 +85,10 @@ The data set with which were working could be explored for at least another mont
 ## Links
 
 [Github Repository](https://github.com/Ddey07/open-data)
+
 [Rmarkdown html]()
+
 [Rmarkdown RMD]()
-[Shiny App]()
+
+[Shiny App](https://apita.shinyapps.io/football_analytics_dashboard/)
 
